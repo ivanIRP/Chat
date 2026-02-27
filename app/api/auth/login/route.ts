@@ -1,8 +1,9 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { supabaseAdmin } from '@/lib/supabase'
-export const dynamic = 'force-dynamic'
+
 
 const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'dev-secret'
 

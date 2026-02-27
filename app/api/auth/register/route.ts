@@ -1,8 +1,8 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendWelcomeEmail } from '@/lib/mailer'
-export const dynamic = 'force-dynamic'
 
 const COLORS = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#84cc16']
 
