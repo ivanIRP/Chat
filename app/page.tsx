@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { MessageSquare, Mail, Lock, User, Eye, EyeOff, Shield } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function HomePage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -13,227 +13,367 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const { login } = useAuth()
+  const [mounted, setMounted] = useState(false)
+  const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+  useEffect(() => {
     try {
-      await login(email, password)
-      router.push('/chat')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión')
-    } finally {
-      setLoading(false)
+      setMounted(true)
+    } catch {
+      // Ignore mount errors
     }
-  }
+  }, [])
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
+  useEffect(() => {
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setSuccess('¡Cuenta creada! Revisa tu correo para obtener tu contraseña.')
-      setMode('login')
-      setEmail(email)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al registrar')
+      if (mounted && !authLoading && user) {
+        router.push('/chat')
+      }
+    } catch (err) {
+      console.error('[Home] Redirect error:', err)
+    }
+  }, [user, authLoading, mounted, router])
+
+  const switchMode = useCallback((newMode: 'login' | 'register') => {
+    try {
+      setMode(newMode)
+      setError('')
+      setSuccess('')
+    } catch {
+      // Ignore errors
+    }
+  }, [])
+
+  const isValidEmail = useCallback((email: string): boolean => {
+    try {
+      if (!email || typeof email !== 'string') return false
+      const trimmed = email.trim().toLowerCase()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      return emailRegex.test(trimmed) && trimmed.length >= 5
+    } catch {
+      return false
+    }
+  }, [])
+
+  const isValidUsername = useCallback((username: string): boolean => {
+    try {
+      if (!username || typeof username !== 'string') return false
+      const trimmed = username.trim()
+      return trimmed.length >= 3 && trimmed.length <= 30
+    } catch {
+      return false
+    }
+  }, [])
+
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
+    try {
+      e.preventDefault()
+      setError('')
+      setSuccess('')
+
+      if (!email || !email.trim()) {
+        setError('El correo es requerido')
+        return
+      }
+
+      if (!isValidEmail(email)) {
+        setError('El formato del correo no es valido')
+        return
+      }
+
+      if (!password || password.length < 4) {
+        setError('La contrasena debe tener al menos 4 caracteres')
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        await login(email.trim().toLowerCase(), password)
+        router.push('/chat')
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesion'
+        if (errorMessage.includes('verificad') || errorMessage.includes('confirm')) {
+          setError('Tu cuenta no ha sido verificada. Revisa tu correo.')
+        } else {
+          setError(errorMessage)
+        }
+      }
+    } catch (err) {
+      console.error('[Home] Login error:', err)
+      setError('Error inesperado. Intenta de nuevo.')
     } finally {
       setLoading(false)
     }
+  }, [email, password, login, router, isValidEmail])
+
+  const handleRegister = useCallback(async (e: React.FormEvent) => {
+    try {
+      e.preventDefault()
+      setError('')
+      setSuccess('')
+
+      if (!email || !email.trim()) {
+        setError('El correo es requerido')
+        return
+      }
+
+      if (!isValidEmail(email)) {
+        setError('El formato del correo no es valido')
+        return
+      }
+
+      if (!username || !username.trim()) {
+        setError('El nombre de usuario es requerido')
+        return
+      }
+
+      if (!isValidUsername(username)) {
+        setError('El nombre de usuario debe tener 3-30 caracteres')
+        return
+      }
+
+      setLoading(true)
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: email.trim().toLowerCase(), 
+            username: username.trim() 
+          }),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        let data: { error?: string; message?: string; success?: boolean }
+        try {
+          data = await res.json()
+        } catch {
+          throw new Error('Respuesta invalida del servidor')
+        }
+
+        if (!res.ok) {
+          throw new Error(data.error || `Error ${res.status}`)
+        }
+
+        setSuccess(data.message || 'Cuenta creada. Revisa tu correo para confirmar tu cuenta y obtener tu contrasena.')
+        setMode('login')
+        setPassword('')
+      } catch (err) {
+        if (err instanceof Error) {
+          if (err.name === 'AbortError') {
+            setError('Tiempo de espera agotado. Intenta de nuevo.')
+          } else {
+            setError(err.message)
+          }
+        } else {
+          setError('Error al registrar. Intenta de nuevo.')
+        }
+      }
+    } catch (err) {
+      console.error('[Home] Register error:', err)
+      setError('Error inesperado. Intenta de nuevo.')
+    } finally {
+      setLoading(false)
+    }
+  }, [email, username, isValidEmail, isValidUsername])
+
+  const togglePassword = useCallback(() => {
+    try {
+      setShowPass(prev => !prev)
+    } catch {
+      // Ignore toggle errors
+    }
+  }, [])
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const value = e.target.value || ''
+      setEmail(value.slice(0, 255))
+      if (error) setError('')
+    } catch {
+      // Ignore input errors
+    }
+  }, [error])
+
+  const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const value = e.target.value || ''
+      setUsername(value.slice(0, 30))
+      if (error) setError('')
+    } catch {
+      // Ignore input errors
+    }
+  }, [error])
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const value = e.target.value || ''
+      setPassword(value.slice(0, 128))
+      if (error) setError('')
+    } catch {
+      // Ignore input errors
+    }
+  }, [error])
+
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center wz-grid-bg">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--color-wz-cyan)' }} />
+          <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm">Cargando...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{
-      background: 'radial-gradient(ellipse at top left, #1e1b4b 0%, #0f0f23 50%, #0f172a 100%)'
-    }}>
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div style={{
-          position: 'absolute', top: '10%', left: '5%', width: 300, height: 300,
-          background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
-          borderRadius: '50%', filter: 'blur(40px)'
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '15%', right: '5%', width: 250, height: 250,
-          background: 'radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)',
-          borderRadius: '50%', filter: 'blur(40px)'
-        }} />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            boxShadow: '0 0 30px rgba(99,102,241,0.4)'
-          }}>
-            <MessageSquare size={32} color="white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white">ChatApp</h1>
-          <p className="text-slate-400 mt-1">Mensajes cifrados en tiempo real</p>
-        </div>
-
+    <div className="min-h-screen flex items-center justify-center p-4 wz-grid-bg">
+      <div className="w-full max-w-md">
         {/* Card */}
-        <div className="rounded-2xl p-8" style={{
-          background: 'rgba(255,255,255,0.05)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
-        }}>
-          {/* Tabs */}
-          <div className="flex mb-6 rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.3)' }}>
-            {(['login', 'register'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(''); setSuccess('') }}
-                className="flex-1 py-2 px-4 rounded-lg font-medium text-sm transition-all"
-                style={{
-                  background: mode === m ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'transparent',
-                  color: mode === m ? 'white' : '#94a3b8',
-                  boxShadow: mode === m ? '0 4px 15px rgba(99,102,241,0.3)' : 'none'
-                }}
-              >
-                {m === 'login' ? 'Iniciar Sesión' : 'Registrarse'}
-              </button>
-            ))}
+        <div className="wz-card p-8">
+          {/* Logo */}
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold tracking-wider mb-2">
+              <span style={{ color: 'var(--color-wz-text)' }}>WZ</span>
+              <span style={{ color: 'var(--color-wz-cyan)' }}>CHAT</span>
+            </h1>
+            <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm uppercase tracking-widest">
+              {mode === 'login' ? 'Establecer Conexion' : 'Crear Cuenta'}
+            </p>
           </div>
 
           {/* Alerts */}
           {error && (
-            <div className="mb-4 p-3 rounded-lg text-sm animate-fade-in" style={{
-              background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5'
-            }}>
-              ⚠️ {error}
+            <div className="wz-error mb-4 flex items-start gap-3">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
+          
           {success && (
-            <div className="mb-4 p-3 rounded-lg text-sm animate-fade-in" style={{
-              background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#86efac'
-            }}>
-              ✅ {success}
+            <div className="wz-success mb-4 flex items-start gap-3">
+              <CheckCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{success}</span>
             </div>
           )}
 
-          <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-4">
+          <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-5">
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Nombre de usuario</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="wz-label">Nombre de Usuario</label>
+                </div>
                 <div className="relative">
-                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-wz-text-muted)' }} />
                   <input
                     type="text"
                     value={username}
-                    onChange={e => setUsername(e.target.value)}
+                    onChange={handleUsernameChange}
                     required
                     placeholder="tu_nombre"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl text-white placeholder-slate-500 outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.07)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    autoComplete="username"
+                    className="wz-input pl-11"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Correo electrónico</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  placeholder="correo@ejemplo.com"
-                  className="w-full pl-9 pr-4 py-3 rounded-xl text-white placeholder-slate-500 outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.07)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#6366f1'}
-                  onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
-                />
+              <div className="flex items-center justify-between mb-2">
+                <label className="wz-label">Email</label>
               </div>
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                required
+                placeholder="correo@ejemplo.com"
+                autoComplete="email"
+                className="wz-input"
+              />
             </div>
 
             {mode === 'login' && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Contraseña</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="wz-label">Contrasena</label>
+                  <button
+                    type="button"
+                    className="wz-link text-xs"
+                    onClick={() => {/* Future: password reset */}}
+                  >
+                    ¿Olvidaste?
+                  </button>
+                </div>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showPass ? 'text' : 'password'}
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={handlePasswordChange}
                     required
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-3 rounded-xl text-white placeholder-slate-500 outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.07)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                    onFocus={e => e.target.style.borderColor = '#6366f1'}
-                    onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    autoComplete="current-password"
+                    className="wz-input pr-12"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    onClick={togglePassword}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors p-1"
+                    style={{ color: 'var(--color-wz-text-muted)' }}
                   >
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
             )}
 
             {mode === 'register' && (
-              <div className="p-3 rounded-lg flex items-start gap-2 text-xs" style={{
-                background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#a5b4fc'
-              }}>
-                <Shield size={14} className="mt-0.5 shrink-0" />
-                <span>Te enviaremos una contraseña generada automáticamente a tu correo. Todos los mensajes van cifrados con AES-256.</span>
+              <div className="wz-warning text-xs">
+                <p>Te enviaremos un correo con tu contrasena y un enlace de confirmacion. Debes confirmar tu cuenta antes de poder iniciar sesion.</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold text-white transition-all"
-              style={{
-                background: loading ? '#4a4a6a' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                boxShadow: loading ? 'none' : '0 4px 20px rgba(99,102,241,0.4)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
+              className="wz-button flex items-center justify-center gap-2"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                  {mode === 'login' ? 'Ingresando...' : 'Registrando...'}
-                </span>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {mode === 'login' ? 'Conectando...' : 'Registrando...'}
+                </>
               ) : (
-                mode === 'login' ? 'Ingresar al Chat' : 'Crear Cuenta'
+                mode === 'login' ? 'Iniciar Sesion' : 'Registrarse'
               )}
             </button>
           </form>
-        </div>
 
-        <p className="text-center text-slate-500 text-xs mt-6">
-          Mensajes protegidos con cifrado AES-256 extremo a extremo
-        </p>
+          {/* Divider */}
+          <div className="wz-divider" />
+
+          {/* Switch mode */}
+          <div className="text-center">
+            <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm">
+              {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+              <button
+                type="button"
+                onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                className="wz-link font-semibold"
+              >
+                {mode === 'login' ? 'Registrate' : 'Inicia Sesion'}
+              </button>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
