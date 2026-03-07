@@ -1,4 +1,4 @@
-// Email service with multiple fallback options
+// WZCHAT Email service with multiple fallback options
 // Supports Resend (preferred) and Nodemailer as fallback
 
 interface EmailResult {
@@ -7,7 +7,79 @@ interface EmailResult {
   provider?: string
 }
 
-// Email HTML template generator
+// Verification Email HTML template
+function generateVerificationEmailHTML(
+  username: string, 
+  password: string, 
+  verificationUrl: string
+): string {
+  try {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Verifica tu cuenta - WZCHAT</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0a0f14; margin: 0; padding: 20px; }
+            .container { max-width: 500px; margin: auto; background: #0d1419; border: 1px solid #1a2530; border-radius: 16px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #00d4ff, #0099cc); padding: 40px; text-align: center; }
+            .header h1 { color: #0a0f14; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 0.1em; }
+            .header p { color: rgba(10,15,20,0.8); margin: 8px 0 0 0; font-size: 14px; }
+            .body { padding: 40px 30px; }
+            .body h2 { color: #ffffff; margin: 0 0 20px 0; font-size: 20px; }
+            .body p { color: #6b7d8f; line-height: 1.6; margin: 0 0 15px 0; }
+            .username { color: #00d4ff; font-weight: 600; }
+            .password-box { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 25px; text-align: center; margin: 25px 0; }
+            .password-box .label { color: #6b7d8f; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 10px 0; }
+            .password-box code { font-size: 24px; font-weight: bold; color: #00d4ff; letter-spacing: 4px; font-family: monospace; }
+            .verify-btn { display: block; background: #00d4ff; color: #0a0f14 !important; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; text-align: center; margin: 25px 0; text-transform: uppercase; letter-spacing: 0.05em; }
+            .verify-btn:hover { background: #00b8e0; }
+            .warning { background: rgba(255,165,2,0.1); border: 1px solid rgba(255,165,2,0.3); border-radius: 8px; padding: 15px; margin-top: 20px; }
+            .warning p { color: #ffa502; margin: 0; font-size: 13px; }
+            .footer { text-align: center; padding: 25px; border-top: 1px solid #1a2530; }
+            .footer p { color: #6b7d8f; margin: 0; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>WZCHAT</h1>
+              <p>Mensajes cifrados de extremo a extremo</p>
+            </div>
+            <div class="body">
+              <h2>Hola ${username}, verifica tu cuenta</h2>
+              <p>Gracias por registrarte en WZCHAT. Para completar tu registro, necesitas verificar tu correo electronico haciendo clic en el boton de abajo.</p>
+              
+              <a href="${verificationUrl}" class="verify-btn">Verificar mi cuenta</a>
+              
+              <p>Una vez verificada tu cuenta, podras iniciar sesion con esta contrasena:</p>
+              
+              <div class="password-box">
+                <p class="label">Tu contrasena</p>
+                <code>${password}</code>
+              </div>
+              
+              <div class="warning">
+                <p>Este enlace expira en 24 horas. Si no verificas tu cuenta, tendras que registrarte de nuevo.</p>
+              </div>
+            </div>
+            <div class="footer">
+              <p>Si no creaste esta cuenta, ignora este correo.</p>
+              <p style="margin-top: 8px;">WZCHAT - Comunicacion segura</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `
+  } catch (error) {
+    console.error('[Email Template] Error generating HTML:', error)
+    return `<p>Hola ${username}, verifica tu cuenta aqui: ${verificationUrl}</p><p>Tu contrasena es: ${password}</p>`
+  }
+}
+
+// Welcome Email HTML template (after verification)
 function generateWelcomeEmailHTML(to: string, password: string, siteUrl: string): string {
   try {
     return `
@@ -16,50 +88,46 @@ function generateWelcomeEmailHTML(to: string, password: string, siteUrl: string)
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Bienvenido a ChatApp</title>
+          <title>Bienvenido a WZCHAT</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f23; margin: 0; padding: 20px; }
-            .container { max-width: 500px; margin: auto; background: linear-gradient(135deg, #1e1b4b 0%, #0f0f23 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(99,102,241,0.3); }
-            .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 40px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 700; }
-            .header p { color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px; }
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0a0f14; margin: 0; padding: 20px; }
+            .container { max-width: 500px; margin: auto; background: #0d1419; border: 1px solid #1a2530; border-radius: 16px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #00d4ff, #0099cc); padding: 40px; text-align: center; }
+            .header h1 { color: #0a0f14; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: 0.1em; }
             .body { padding: 40px 30px; }
-            .body h2 { color: #e2e8f0; margin: 0 0 20px 0; font-size: 22px; }
-            .body p { color: #94a3b8; line-height: 1.6; margin: 0 0 15px 0; }
-            .password-box { background: rgba(99,102,241,0.15); border: 2px solid rgba(99,102,241,0.4); border-radius: 12px; padding: 25px; text-align: center; margin: 25px 0; }
-            .password-box .label { color: #a5b4fc; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 10px 0; }
-            .password-box code { font-size: 28px; font-weight: bold; color: #818cf8; letter-spacing: 4px; font-family: 'Courier New', monospace; }
+            .body h2 { color: #ffffff; margin: 0 0 20px 0; font-size: 22px; }
+            .body p { color: #6b7d8f; line-height: 1.6; margin: 0 0 15px 0; }
+            .password-box { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 25px; text-align: center; margin: 25px 0; }
+            .password-box .label { color: #6b7d8f; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 10px 0; }
+            .password-box code { font-size: 24px; font-weight: bold; color: #00d4ff; letter-spacing: 4px; font-family: monospace; }
             .email-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px 16px; margin: 15px 0; }
-            .email-box span { color: #e2e8f0; font-weight: 500; }
-            .btn { display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white !important; padding: 16px 40px; border-radius: 12px; text-decoration: none; font-weight: 600; margin-top: 20px; box-shadow: 0 10px 30px rgba(99,102,241,0.4); }
-            .security { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 8px; padding: 15px; margin-top: 20px; }
-            .security p { color: #86efac; margin: 0; font-size: 13px; }
-            .footer { text-align: center; padding: 25px; border-top: 1px solid rgba(255,255,255,0.1); }
-            .footer p { color: #64748b; margin: 0; font-size: 12px; }
+            .email-box span { color: #ffffff; font-weight: 500; }
+            .btn { display: block; background: #00d4ff; color: #0a0f14 !important; padding: 16px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; text-align: center; margin-top: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+            .security { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); border-radius: 8px; padding: 15px; margin-top: 20px; }
+            .security p { color: #00ff88; margin: 0; font-size: 13px; }
+            .footer { text-align: center; padding: 25px; border-top: 1px solid #1a2530; }
+            .footer p { color: #6b7d8f; margin: 0; font-size: 12px; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>ChatApp</h1>
-              <p>Mensajes cifrados en tiempo real</p>
+              <h1>WZCHAT</h1>
             </div>
             <div class="body">
               <h2>Tu cuenta ha sido creada</h2>
-              <p>Gracias por registrarte en ChatApp. Aqui estan tus credenciales de acceso:</p>
+              <p>Gracias por registrarte en WZCHAT. Aqui estan tus credenciales de acceso:</p>
               <div class="email-box">
                 <span>Correo: ${to}</span>
               </div>
               <div class="password-box">
-                <p class="label">Tu contrasena temporal</p>
+                <p class="label">Tu contrasena</p>
                 <code>${password}</code>
               </div>
               <div class="security">
-                <p>Por seguridad, te recomendamos cambiar tu contrasena al ingresar. Todos los mensajes estan protegidos con cifrado AES-256.</p>
+                <p>Todos los mensajes estan protegidos con cifrado AES-256 de extremo a extremo.</p>
               </div>
-              <center>
-                <a href="${siteUrl}" class="btn">Ir al Chat</a>
-              </center>
+              <a href="${siteUrl}" class="btn">Ir al Chat</a>
             </div>
             <div class="footer">
               <p>Si no creaste esta cuenta, ignora este correo.</p>
@@ -70,7 +138,7 @@ function generateWelcomeEmailHTML(to: string, password: string, siteUrl: string)
     `
   } catch (error) {
     console.error('[Email Template] Error generating HTML:', error)
-    return `<p>Tu contrasena para ChatApp es: ${password}</p><p>Correo: ${to}</p>`
+    return `<p>Tu contrasena para WZCHAT es: ${password}</p><p>Correo: ${to}</p>`
   }
 }
 
@@ -90,7 +158,7 @@ async function sendWithResend(to: string, subject: string, html: string): Promis
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'ChatApp <onboarding@resend.dev>',
+        from: 'WZCHAT <onboarding@resend.dev>',
         to: [to],
         subject: subject,
         html: html,
@@ -138,7 +206,7 @@ async function sendWithNodemailer(to: string, subject: string, html: string): Pr
     })
 
     await transporter.sendMail({
-      from: `"ChatApp" <${smtpUser}>`,
+      from: `"WZCHAT" <${smtpUser}>`,
       to,
       subject,
       html,
@@ -152,17 +220,25 @@ async function sendWithNodemailer(to: string, subject: string, html: string): Pr
   }
 }
 
-// Console fallback for development (logs password to console)
-function logToConsole(to: string, password: string): EmailResult {
+// Console fallback for development
+function logToConsole(to: string, password: string, verificationUrl?: string): EmailResult {
   console.log('\n===========================================')
-  console.log('[DEV MODE] Email would be sent to:', to)
-  console.log('[DEV MODE] Generated password:', password)
+  console.log('[WZCHAT DEV MODE] Email would be sent to:', to)
+  console.log('[WZCHAT DEV MODE] Generated password:', password)
+  if (verificationUrl) {
+    console.log('[WZCHAT DEV MODE] Verification URL:', verificationUrl)
+  }
   console.log('===========================================\n')
   return { success: true, provider: 'console' }
 }
 
-// Main email sending function with multiple fallbacks
-export async function sendWelcomeEmail(to: string, password: string): Promise<EmailResult> {
+// Send verification email with password
+export async function sendVerificationEmail(
+  to: string, 
+  username: string,
+  password: string, 
+  verificationUrl: string
+): Promise<EmailResult> {
   // Validate inputs
   if (!to || typeof to !== 'string' || !to.includes('@')) {
     console.error('[Email] Invalid email address:', to)
@@ -174,39 +250,69 @@ export async function sendWelcomeEmail(to: string, password: string): Promise<Em
     return { success: false, error: 'Invalid password' }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'http://localhost:3000'
-  
-  const subject = 'Bienvenido a ChatApp - Tu contrasena'
-  const html = generateWelcomeEmailHTML(to, password, siteUrl)
+  if (!verificationUrl || typeof verificationUrl !== 'string') {
+    console.error('[Email] Invalid verification URL')
+    return { success: false, error: 'Invalid verification URL' }
+  }
+
+  const subject = 'Verifica tu cuenta en WZCHAT'
+  const html = generateVerificationEmailHTML(username, password, verificationUrl)
 
   // Try Resend first (preferred - no SMTP needed)
   const resendResult = await sendWithResend(to, subject, html)
   if (resendResult.success) {
-    console.log('[Email] Sent successfully via Resend to:', to)
+    console.log('[Email] Verification sent via Resend to:', to)
     return resendResult
   }
 
   // Try Nodemailer as fallback
   const nodemailerResult = await sendWithNodemailer(to, subject, html)
   if (nodemailerResult.success) {
-    console.log('[Email] Sent successfully via Nodemailer to:', to)
+    console.log('[Email] Verification sent via Nodemailer to:', to)
     return nodemailerResult
   }
 
   // Development fallback - log to console
   if (process.env.NODE_ENV === 'development' || !process.env.RESEND_API_KEY) {
     console.warn('[Email] All providers failed, using console fallback')
-    return logToConsole(to, password)
+    return logToConsole(to, password, verificationUrl)
   }
 
-  // All methods failed
   console.error('[Email] All email sending methods failed')
   return { 
     success: false, 
     error: `Failed to send email. Resend: ${resendResult.error}. Nodemailer: ${nodemailerResult.error}` 
   }
+}
+
+// Send welcome email (legacy - after verification)
+export async function sendWelcomeEmail(to: string, password: string): Promise<EmailResult> {
+  if (!to || typeof to !== 'string' || !to.includes('@')) {
+    return { success: false, error: 'Invalid email address' }
+  }
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return { success: false, error: 'Invalid password' }
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'http://localhost:3000'
+  
+  const subject = 'Bienvenido a WZCHAT - Tu contrasena'
+  const html = generateWelcomeEmailHTML(to, password, siteUrl)
+
+  const resendResult = await sendWithResend(to, subject, html)
+  if (resendResult.success) return resendResult
+
+  const nodemailerResult = await sendWithNodemailer(to, subject, html)
+  if (nodemailerResult.success) return nodemailerResult
+
+  if (process.env.NODE_ENV === 'development' || !process.env.RESEND_API_KEY) {
+    return logToConsole(to, password)
+  }
+
+  return { success: false, error: 'All email providers failed' }
 }
 
 // Notification email for selected accounts
@@ -216,12 +322,11 @@ export async function sendNotificationEmail(
   message: string
 ): Promise<EmailResult> {
   try {
-    // Validate inputs
     if (!to || !to.includes('@')) {
       return { success: false, error: 'Invalid email' }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     
     const html = `
       <!DOCTYPE html>
@@ -229,40 +334,36 @@ export async function sendNotificationEmail(
         <head>
           <meta charset="utf-8">
           <style>
-            body { font-family: 'Segoe UI', sans-serif; background: #0f0f23; margin: 0; padding: 20px; }
-            .container { max-width: 500px; margin: auto; background: #1e1b4b; border-radius: 16px; overflow: hidden; }
-            .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 30px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-size: 24px; }
-            .body { padding: 30px; color: #e2e8f0; }
-            .message { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 20px; margin: 15px 0; line-height: 1.6; }
-            .btn { display: inline-block; background: #6366f1; color: white !important; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-            .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+            body { font-family: system-ui, sans-serif; background: #0a0f14; margin: 0; padding: 20px; }
+            .container { max-width: 500px; margin: auto; background: #0d1419; border: 1px solid #1a2530; border-radius: 16px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #00d4ff, #0099cc); padding: 30px; text-align: center; }
+            .header h1 { color: #0a0f14; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.1em; }
+            .body { padding: 30px; color: #ffffff; }
+            .message { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 20px; margin: 15px 0; line-height: 1.6; color: #6b7d8f; }
+            .btn { display: block; background: #00d4ff; color: #0a0f14 !important; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600; text-align: center; text-transform: uppercase; }
+            .footer { text-align: center; padding: 20px; color: #6b7d8f; font-size: 12px; border-top: 1px solid #1a2530; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>ChatApp Notification</h1>
+              <h1>WZCHAT</h1>
             </div>
             <div class="body">
               <div class="message">${message}</div>
-              <center>
-                <a href="${siteUrl}" class="btn">Ir a ChatApp</a>
-              </center>
+              <a href="${siteUrl}" class="btn">Ir a WZCHAT</a>
             </div>
             <div class="footer">
-              <p>ChatApp - Mensajes cifrados</p>
+              <p>WZCHAT - Comunicacion segura</p>
             </div>
           </div>
         </body>
       </html>
     `
 
-    // Try Resend first
     const resendResult = await sendWithResend(to, subject, html)
     if (resendResult.success) return resendResult
 
-    // Try Nodemailer
     const nodemailerResult = await sendWithNodemailer(to, subject, html)
     if (nodemailerResult.success) return nodemailerResult
 

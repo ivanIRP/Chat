@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { MessageSquare, Mail, Lock, User, Eye, EyeOff, Shield, AlertCircle, CheckCircle, Sparkles, Bot } from 'lucide-react'
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function HomePage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -17,12 +17,14 @@ export default function HomePage() {
   const { login, user, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  // Mark component as mounted
   useEffect(() => {
-    setMounted(true)
+    try {
+      setMounted(true)
+    } catch {
+      // Ignore mount errors
+    }
   }, [])
 
-  // Redirect if already logged in
   useEffect(() => {
     try {
       if (mounted && !authLoading && user) {
@@ -33,18 +35,16 @@ export default function HomePage() {
     }
   }, [user, authLoading, mounted, router])
 
-  // Safe mode switch
   const switchMode = useCallback((newMode: 'login' | 'register') => {
     try {
       setMode(newMode)
       setError('')
       setSuccess('')
-    } catch (err) {
-      console.error('[Home] Mode switch error:', err)
+    } catch {
+      // Ignore errors
     }
   }, [])
 
-  // Validate email format
   const isValidEmail = useCallback((email: string): boolean => {
     try {
       if (!email || typeof email !== 'string') return false
@@ -56,28 +56,22 @@ export default function HomePage() {
     }
   }, [])
 
-  // Validate username format
   const isValidUsername = useCallback((username: string): boolean => {
     try {
       if (!username || typeof username !== 'string') return false
       const trimmed = username.trim()
-      const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/
-      return usernameRegex.test(trimmed)
+      return trimmed.length >= 3 && trimmed.length <= 30
     } catch {
       return false
     }
   }, [])
 
-  // Handle login with comprehensive error handling
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     try {
       e.preventDefault()
-      
-      // Reset state
       setError('')
       setSuccess('')
 
-      // Validate inputs
       if (!email || !email.trim()) {
         setError('El correo es requerido')
         return
@@ -100,7 +94,11 @@ export default function HomePage() {
         router.push('/chat')
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Error al iniciar sesion'
-        setError(errorMessage)
+        if (errorMessage.includes('verificad') || errorMessage.includes('confirm')) {
+          setError('Tu cuenta no ha sido verificada. Revisa tu correo.')
+        } else {
+          setError(errorMessage)
+        }
       }
     } catch (err) {
       console.error('[Home] Login error:', err)
@@ -110,16 +108,12 @@ export default function HomePage() {
     }
   }, [email, password, login, router, isValidEmail])
 
-  // Handle registration with comprehensive error handling
   const handleRegister = useCallback(async (e: React.FormEvent) => {
     try {
       e.preventDefault()
-      
-      // Reset state
       setError('')
       setSuccess('')
 
-      // Validate email
       if (!email || !email.trim()) {
         setError('El correo es requerido')
         return
@@ -130,20 +124,18 @@ export default function HomePage() {
         return
       }
 
-      // Validate username
       if (!username || !username.trim()) {
         setError('El nombre de usuario es requerido')
         return
       }
 
       if (!isValidUsername(username)) {
-        setError('El nombre de usuario debe tener 3-30 caracteres (letras, numeros, guion bajo)')
+        setError('El nombre de usuario debe tener 3-30 caracteres')
         return
       }
 
       setLoading(true)
 
-      // Send registration request
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
 
@@ -171,7 +163,7 @@ export default function HomePage() {
           throw new Error(data.error || `Error ${res.status}`)
         }
 
-        setSuccess(data.message || 'Cuenta creada. Revisa tu correo para obtener tu contrasena.')
+        setSuccess(data.message || 'Cuenta creada. Revisa tu correo para confirmar tu cuenta y obtener tu contrasena.')
         setMode('login')
         setPassword('')
       } catch (err) {
@@ -193,7 +185,6 @@ export default function HomePage() {
     }
   }, [email, username, isValidEmail, isValidUsername])
 
-  // Toggle password visibility
   const togglePassword = useCallback(() => {
     try {
       setShowPass(prev => !prev)
@@ -202,7 +193,6 @@ export default function HomePage() {
     }
   }, [])
 
-  // Input change handlers with validation
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const value = e.target.value || ''
@@ -216,9 +206,7 @@ export default function HomePage() {
   const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const value = e.target.value || ''
-      // Only allow valid characters
-      const sanitized = value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30)
-      setUsername(sanitized)
+      setUsername(value.slice(0, 30))
       if (error) setError('')
     } catch {
       // Ignore input errors
@@ -235,164 +223,56 @@ export default function HomePage() {
     }
   }, [error])
 
-  // Show loading while checking auth
   if (!mounted || authLoading) {
     return (
-      <div 
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: '#0f0f23' }}
-      >
+      <div className="min-h-screen flex items-center justify-center wz-grid-bg">
         <div className="flex flex-col items-center gap-4">
-          <div 
-            className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: '#6366f1', borderTopColor: 'transparent' }}
-          />
-          <p className="text-slate-400 text-sm">Cargando...</p>
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--color-wz-cyan)' }} />
+          <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{
-        background: 'radial-gradient(ellipse at top left, #1e1b4b 0%, #0f0f23 50%, #0f172a 100%)',
-      }}
-    >
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div 
-          className="absolute"
-          style={{
-            top: '10%',
-            left: '5%',
-            width: 350,
-            height: 350,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(50px)',
-          }}
-        />
-        <div 
-          className="absolute"
-          style={{
-            bottom: '15%',
-            right: '5%',
-            width: 300,
-            height: 300,
-            background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(50px)',
-          }}
-        />
-        <div 
-          className="absolute"
-          style={{
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 600,
-            height: 600,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 60%)',
-            borderRadius: '50%',
-            filter: 'blur(80px)',
-          }}
-        />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div 
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4"
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              boxShadow: '0 0 40px rgba(99,102,241,0.4), 0 20px 40px rgba(0,0,0,0.3)',
-            }}
-          >
-            <MessageSquare size={36} color="white" />
-          </div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">ChatApp</h1>
-          <p className="text-slate-400 mt-2 flex items-center justify-center gap-2">
-            <Shield size={14} className="text-indigo-400" />
-            Mensajes cifrados en tiempo real
-          </p>
-          <div className="flex items-center justify-center gap-2 mt-2">
-            <Bot size={14} className="text-purple-400" />
-            <span className="text-xs text-slate-500">Con asistente IA integrado</span>
-            <Sparkles size={10} className="text-purple-400" />
-          </div>
-        </div>
-
+    <div className="min-h-screen flex items-center justify-center p-4 wz-grid-bg">
+      <div className="w-full max-w-md">
         {/* Card */}
-        <div 
-          className="rounded-3xl p-8"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
-          }}
-        >
-          {/* Tabs */}
-          <div 
-            className="flex mb-6 rounded-xl p-1"
-            style={{ background: 'rgba(0,0,0,0.4)' }}
-          >
-            {(['login', 'register'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => switchMode(m)}
-                className="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all"
-                style={{
-                  background: mode === m 
-                    ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' 
-                    : 'transparent',
-                  color: mode === m ? 'white' : '#94a3b8',
-                  boxShadow: mode === m ? '0 4px 15px rgba(99,102,241,0.4)' : 'none',
-                }}
-              >
-                {m === 'login' ? 'Iniciar Sesion' : 'Registrarse'}
-              </button>
-            ))}
+        <div className="wz-card p-8">
+          {/* Logo */}
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold tracking-wider mb-2">
+              <span style={{ color: 'var(--color-wz-text)' }}>WZ</span>
+              <span style={{ color: 'var(--color-wz-cyan)' }}>CHAT</span>
+            </h1>
+            <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm uppercase tracking-widest">
+              {mode === 'login' ? 'Establecer Conexion' : 'Crear Cuenta'}
+            </p>
           </div>
 
           {/* Alerts */}
           {error && (
-            <div 
-              className="mb-4 p-4 rounded-xl text-sm flex items-start gap-3"
-              style={{
-                background: 'rgba(239,68,68,0.12)',
-                border: '1px solid rgba(239,68,68,0.25)',
-              }}
-            >
-              <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
-              <span className="text-red-300">{error}</span>
+            <div className="wz-error mb-4 flex items-start gap-3">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
           
           {success && (
-            <div 
-              className="mb-4 p-4 rounded-xl text-sm flex items-start gap-3"
-              style={{
-                background: 'rgba(34,197,94,0.12)',
-                border: '1px solid rgba(34,197,94,0.25)',
-              }}
-            >
-              <CheckCircle size={18} className="text-green-400 shrink-0 mt-0.5" />
-              <span className="text-green-300">{success}</span>
+            <div className="wz-success mb-4 flex items-start gap-3">
+              <CheckCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{success}</span>
             </div>
           )}
 
           <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-5">
             {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Nombre de usuario
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="wz-label">Nombre de Usuario</label>
+                </div>
                 <div className="relative">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-wz-text-muted)' }} />
                   <input
                     type="text"
                     value={username}
@@ -400,49 +280,40 @@ export default function HomePage() {
                     required
                     placeholder="tu_nombre"
                     autoComplete="username"
-                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white placeholder-slate-500 outline-none transition-all text-sm"
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                    onFocus={(e) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                    onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none' }}
+                    className="wz-input pl-11"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Correo electronico
-              </label>
-              <div className="relative">
-                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={handleEmailChange}
-                  required
-                  placeholder="correo@ejemplo.com"
-                  autoComplete="email"
-                  className="w-full pl-11 pr-4 py-3.5 rounded-xl text-white placeholder-slate-500 outline-none transition-all text-sm"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                  }}
-                  onFocus={(e) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                  onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none' }}
-                />
+              <div className="flex items-center justify-between mb-2">
+                <label className="wz-label">Email</label>
               </div>
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                required
+                placeholder="correo@ejemplo.com"
+                autoComplete="email"
+                className="wz-input"
+              />
             </div>
 
             {mode === 'login' && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Contrasena
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="wz-label">Contrasena</label>
+                  <button
+                    type="button"
+                    className="wz-link text-xs"
+                    onClick={() => {/* Future: password reset */}}
+                  >
+                    ¿Olvidaste?
+                  </button>
+                </div>
                 <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type={showPass ? 'text' : 'password'}
                     value={password}
@@ -450,18 +321,13 @@ export default function HomePage() {
                     required
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className="w-full pl-11 pr-12 py-3.5 rounded-xl text-white placeholder-slate-500 outline-none transition-all text-sm"
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                    onFocus={(e) => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                    onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none' }}
+                    className="wz-input pr-12"
                   />
                   <button
                     type="button"
                     onClick={togglePassword}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors p-1"
+                    style={{ color: 'var(--color-wz-text-muted)' }}
                   >
                     {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -470,56 +336,43 @@ export default function HomePage() {
             )}
 
             {mode === 'register' && (
-              <div 
-                className="p-4 rounded-xl flex items-start gap-3 text-sm"
-                style={{
-                  background: 'rgba(99,102,241,0.08)',
-                  border: '1px solid rgba(99,102,241,0.15)',
-                }}
-              >
-                <Shield size={18} className="text-indigo-400 shrink-0 mt-0.5" />
-                <span className="text-indigo-300 leading-relaxed">
-                  Te enviaremos una contrasena generada automaticamente a tu correo. 
-                  Todos los mensajes van cifrados con AES-256.
-                </span>
+              <div className="wz-warning text-xs">
+                <p>Te enviaremos un correo con tu contrasena y un enlace de confirmacion. Debes confirmar tu cuenta antes de poder iniciar sesion.</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 rounded-xl font-semibold text-white transition-all text-sm"
-              style={{
-                background: loading 
-                  ? 'rgba(99,102,241,0.5)' 
-                  : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                boxShadow: loading ? 'none' : '0 8px 30px rgba(99,102,241,0.4)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
+              className="wz-button flex items-center justify-center gap-2"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <span 
-                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
-                  />
-                  {mode === 'login' ? 'Ingresando...' : 'Registrando...'}
-                </span>
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {mode === 'login' ? 'Conectando...' : 'Registrando...'}
+                </>
               ) : (
-                mode === 'login' ? 'Ingresar al Chat' : 'Crear Cuenta'
+                mode === 'login' ? 'Iniciar Sesion' : 'Registrarse'
               )}
             </button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <div className="text-center mt-6 space-y-2">
-          <p className="text-slate-500 text-xs flex items-center justify-center gap-2">
-            <Lock size={12} />
-            Mensajes protegidos con cifrado AES-256 extremo a extremo
-          </p>
-          <p className="text-slate-600 text-xs">
-            ChatApp v2.0 - Con asistente IA integrado
-          </p>
+          {/* Divider */}
+          <div className="wz-divider" />
+
+          {/* Switch mode */}
+          <div className="text-center">
+            <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm">
+              {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+              <button
+                type="button"
+                onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                className="wz-link font-semibold"
+              >
+                {mode === 'login' ? 'Registrate' : 'Inicia Sesion'}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
     </div>

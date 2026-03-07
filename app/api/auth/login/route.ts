@@ -149,12 +149,13 @@ export async function POST(req: NextRequest) {
       username: string
       password: string
       avatar_color: string
+      email_verified: boolean | null
     } | null = null
 
     try {
       const { data, error: queryError } = await supabaseAdmin
         .from('users')
-        .select('id, email, username, password, avatar_color')
+        .select('id, email, username, password, avatar_color, email_verified')
         .eq('email', normalizedEmail)
         .single()
 
@@ -192,6 +193,18 @@ export async function POST(req: NextRequest) {
           remainingAttempts: rateLimit.remainingAttempts - 1,
         },
         { status: 401 }
+      )
+    }
+
+    // Check if email is verified
+    if (user.email_verified === false) {
+      return NextResponse.json(
+        { 
+          error: 'Tu cuenta no ha sido verificada. Revisa tu correo y haz clic en el enlace de verificacion.',
+          success: false,
+          needsVerification: true,
+        },
+        { status: 403 }
       )
     }
 

@@ -6,17 +6,15 @@ import { useSocket } from '@/hooks/useSocket'
 import ChatWindow from '@/components/ChatWindow'
 import UsersPanel from '@/components/UsersPanel'
 import AIChatPanel from '@/components/AIChatPanel'
-import { MessageSquare, LogOut, Bot, Sparkles, AlertCircle, RefreshCw, Bell, Settings } from 'lucide-react'
+import { MessageSquare, LogOut, Bot, AlertCircle, RefreshCw } from 'lucide-react'
 
 export default function ChatPage() {
   const { user, token, logout, loading, error: authError } = useAuth()
   const router = useRouter()
   const { messages, connected, onlineUsers, sendMessage, error: socketError, reconnecting } = useSocket(token)
   const [showAIChat, setShowAIChat] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [pageError, setPageError] = useState<string | null>(null)
 
-  // Safe navigation with error handling
   const safeNavigate = useCallback((path: string) => {
     try {
       if (router && typeof router.push === 'function') {
@@ -30,7 +28,6 @@ export default function ChatPage() {
     }
   }, [router])
 
-  // Auth check with error handling
   useEffect(() => {
     try {
       if (!loading && !user) {
@@ -42,7 +39,6 @@ export default function ChatPage() {
     }
   }, [user, loading, safeNavigate])
 
-  // Handle logout with error handling
   const handleLogout = useCallback(() => {
     try {
       if (logout && typeof logout === 'function') {
@@ -51,7 +47,6 @@ export default function ChatPage() {
       safeNavigate('/')
     } catch (err) {
       console.error('[Chat] Logout error:', err)
-      // Force redirect even if logout fails
       try {
         localStorage.removeItem('chat_user')
         localStorage.removeItem('chat_token')
@@ -62,7 +57,6 @@ export default function ChatPage() {
     }
   }, [logout, safeNavigate])
 
-  // Toggle AI chat with error handling
   const toggleAIChat = useCallback(() => {
     try {
       setShowAIChat(prev => !prev)
@@ -71,38 +65,29 @@ export default function ChatPage() {
     }
   }, [])
 
-  // Loading state
   if (loading) {
     return (
-      <div 
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: '#0f0f23' }}
-      >
+      <div className="min-h-screen flex items-center justify-center wz-grid-bg">
         <div className="flex flex-col items-center gap-4">
           <div 
-            className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: '#6366f1', borderTopColor: 'transparent' }}
+            className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: 'var(--color-wz-cyan)', borderTopColor: 'transparent' }}
           />
-          <p className="text-slate-400 text-sm">Cargando...</p>
+          <p style={{ color: 'var(--color-wz-text-muted)' }} className="text-sm">Cargando...</p>
         </div>
       </div>
     )
   }
 
-  // No user state
   if (!user) {
     return (
-      <div 
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: '#0f0f23' }}
-      >
+      <div className="min-h-screen flex items-center justify-center wz-grid-bg">
         <div className="flex flex-col items-center gap-4 text-center px-4">
-          <AlertCircle size={48} className="text-red-400" />
-          <p className="text-slate-300">Sesion no encontrada</p>
+          <AlertCircle size={48} style={{ color: 'var(--color-wz-error)' }} />
+          <p style={{ color: 'var(--color-wz-text)' }}>Sesion no encontrada</p>
           <button
             onClick={() => safeNavigate('/')}
-            className="px-6 py-2 rounded-lg text-white text-sm font-medium"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+            className="wz-button-outline"
           >
             Ir al inicio
           </button>
@@ -111,54 +96,19 @@ export default function ChatPage() {
     )
   }
 
-  // Get display values with fallbacks
   const displayUsername = user?.username || 'Usuario'
   const displayInitial = displayUsername[0]?.toUpperCase() || 'U'
-  const displayColor = user?.avatar_color || '#6366f1'
+  const displayColor = user?.avatar_color || '#00d4ff'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0f0f23' }}>
-      {/* Background decoration */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div 
-          className="absolute"
-          style={{
-            top: '5%',
-            left: '10%',
-            width: 400,
-            height: 400,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(60px)',
-          }}
-        />
-        <div 
-          className="absolute"
-          style={{
-            bottom: '10%',
-            right: '5%',
-            width: 350,
-            height: 350,
-            background: 'radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(60px)',
-          }}
-        />
-      </div>
-
+    <div className="min-h-screen flex flex-col wz-grid-bg">
       {/* Error banner */}
       {(pageError || authError || socketError) && (
-        <div 
-          className="px-4 py-2 flex items-center justify-center gap-2 text-sm z-20"
-          style={{
-            background: 'rgba(239, 68, 68, 0.15)',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.3)',
-          }}
-        >
-          <AlertCircle size={14} className="text-red-400" />
-          <span className="text-red-300">{pageError || authError || socketError}</span>
+        <div className="wz-error flex items-center justify-center gap-2 text-sm z-20 rounded-none border-x-0 border-t-0">
+          <AlertCircle size={14} />
+          <span>{pageError || authError || socketError}</span>
           {reconnecting && (
-            <span className="flex items-center gap-1 text-amber-400 ml-2">
+            <span className="flex items-center gap-1 ml-2" style={{ color: 'var(--color-wz-warning)' }}>
               <RefreshCw size={12} className="animate-spin" />
               Reconectando...
             </span>
@@ -166,37 +116,30 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Topbar */}
-      <header
-        className="flex items-center justify-between px-4 md:px-6 py-3 shrink-0 relative z-10"
-        style={{
-          background: 'rgba(255,255,255,0.02)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          backdropFilter: 'blur(20px)',
-        }}
-      >
+      {/* Header */}
+      <header className="wz-header flex items-center justify-between px-4 md:px-6 py-3 shrink-0 relative z-10">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ 
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+              background: 'var(--color-wz-cyan)',
+              boxShadow: '0 4px 20px var(--color-wz-cyan-glow)',
             }}
           >
-            <MessageSquare size={20} color="white" />
+            <MessageSquare size={20} style={{ color: 'var(--color-wz-bg)' }} />
           </div>
           <div>
-            <span className="font-bold text-white text-lg">ChatApp</span>
+            <span className="font-bold text-lg tracking-wider">
+              <span style={{ color: 'var(--color-wz-text)' }}>WZ</span>
+              <span style={{ color: 'var(--color-wz-cyan)' }}>CHAT</span>
+            </span>
             <div className="flex items-center gap-1.5 mt-0.5">
               <div
-                className="w-2 h-2 rounded-full"
-                style={{ 
-                  background: connected ? '#22c55e' : reconnecting ? '#f59e0b' : '#ef4444',
-                  boxShadow: connected ? '0 0 8px rgba(34,197,94,0.6)' : 'none',
-                }}
+                className={connected ? 'wz-status-online' : 'wz-status-offline'}
+                style={{ width: '8px', height: '8px' }}
               />
-              <span className="text-xs text-slate-500">
+              <span className="text-xs" style={{ color: 'var(--color-wz-text-muted)' }}>
                 {connected ? 'Conectado' : reconnecting ? 'Reconectando...' : 'Desconectado'}
               </span>
             </div>
@@ -208,44 +151,36 @@ export default function ChatPage() {
           {/* AI Chat Button */}
           <button
             onClick={toggleAIChat}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all"
             style={{
-              background: showAIChat 
-                ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' 
-                : 'rgba(255,255,255,0.05)',
-              boxShadow: showAIChat ? '0 4px 15px rgba(99,102,241,0.4)' : 'none',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: showAIChat ? 'var(--color-wz-cyan)' : 'transparent',
+              color: showAIChat ? 'var(--color-wz-bg)' : 'var(--color-wz-cyan)',
+              border: '1px solid var(--color-wz-cyan)',
             }}
             title="Asistente IA"
           >
-            <Bot size={16} className="text-white" />
-            <span className="hidden sm:block text-white font-medium">IA</span>
-            <Sparkles size={10} className="text-indigo-300" />
+            <Bot size={16} />
+            <span className="hidden sm:block font-semibold">IA</span>
           </button>
 
           {/* User info */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-              style={{ 
-                background: displayColor,
-                boxShadow: `0 2px 10px ${displayColor}40`,
-              }}
-            >
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <div className="wz-avatar" style={{ background: displayColor, width: '32px', height: '32px', fontSize: '14px' }}>
               {displayInitial}
             </div>
-            <span className="text-sm text-slate-300 hidden sm:block font-medium">{displayUsername}</span>
+            <span className="text-sm hidden sm:block font-medium" style={{ color: 'var(--color-wz-text)' }}>
+              {displayUsername}
+            </span>
           </div>
 
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-            style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            className="wz-button-outline flex items-center gap-2"
             title="Cerrar sesion"
           >
             <LogOut size={16} />
-            <span className="hidden md:block">Salir</span>
+            <span className="hidden md:block">Cerrar Sesion</span>
           </button>
         </div>
       </header>
@@ -267,11 +202,11 @@ export default function ChatPage() {
           onClick={toggleAIChat}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center md:hidden z-40 transition-transform hover:scale-105 active:scale-95"
           style={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            boxShadow: '0 8px 30px rgba(99,102,241,0.5)',
+            background: 'var(--color-wz-cyan)',
+            boxShadow: '0 8px 30px var(--color-wz-cyan-glow)',
           }}
         >
-          <Bot size={24} color="white" />
+          <Bot size={24} style={{ color: 'var(--color-wz-bg)' }} />
         </button>
       )}
     </div>

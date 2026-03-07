@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Users, ChevronLeft, ChevronRight, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
 interface UserInfo {
@@ -20,12 +20,11 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const { token } = useAuth()
 
-  // Fetch users with error handling
   const fetchUsers = useCallback(async () => {
     try {
-      // Validate token
       if (!token || typeof token !== 'string' || token.length < 10) {
         setError('Token invalido')
         return
@@ -64,7 +63,6 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
           return
         }
 
-        // Validate and sanitize user data
         const validUsers = data.users
           .filter((u): u is UserInfo => {
             return (
@@ -78,7 +76,7 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
             id: u.id,
             username: u.username,
             email: u.email || '',
-            avatar_color: u.avatar_color || '#6366f1',
+            avatar_color: u.avatar_color || '#00d4ff',
           }))
 
         setUsers(validUsers)
@@ -102,14 +100,12 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
     }
   }, [token])
 
-  // Fetch users on mount and when token changes
   useEffect(() => {
     if (token) {
       fetchUsers()
     }
   }, [token, fetchUsers])
 
-  // Toggle collapsed state
   const toggleCollapsed = useCallback(() => {
     try {
       setCollapsed(prev => !prev)
@@ -118,7 +114,6 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
     }
   }, [])
 
-  // Check if user is online with null safety
   const isOnline = useCallback((username: string): boolean => {
     try {
       if (!username || !onlineUsers || !Array.isArray(onlineUsers)) {
@@ -130,7 +125,6 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
     }
   }, [onlineUsers])
 
-  // Memoized online count
   const onlineCount = useMemo(() => {
     try {
       if (!onlineUsers || !Array.isArray(onlineUsers)) return 0
@@ -140,93 +134,74 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
     }
   }, [onlineUsers])
 
-  // Memoized user count
-  const userCount = useMemo(() => {
+  const filteredUsers = useMemo(() => {
     try {
-      if (!users || !Array.isArray(users)) return 0
-      return users.length
+      if (!users || !Array.isArray(users)) return []
+      if (!searchQuery.trim()) return users
+      const query = searchQuery.toLowerCase()
+      return users.filter(u => 
+        u.username.toLowerCase().includes(query) || 
+        u.email.toLowerCase().includes(query)
+      )
     } catch {
-      return 0
+      return users
     }
-  }, [users])
+  }, [users, searchQuery])
 
   return (
     <div
-      className="flex flex-col h-full transition-all duration-300"
-      style={{
-        width: collapsed ? 60 : 280,
-        background: 'rgba(255,255,255,0.02)',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
-        flexShrink: 0,
-      }}
+      className="wz-sidebar flex flex-col h-full transition-all duration-300"
+      style={{ width: collapsed ? 60 : 280, flexShrink: 0 }}
     >
       {/* Header */}
       <div 
         className="flex items-center justify-between p-4 shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid var(--color-wz-border)' }}
       >
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <Users size={18} className="text-indigo-400" />
-            <span className="font-semibold text-sm text-slate-200">Usuarios</span>
-            <span 
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}
-            >
-              {userCount}
+            {connected ? (
+              <Wifi size={16} style={{ color: 'var(--color-wz-success)' }} />
+            ) : (
+              <WifiOff size={16} style={{ color: 'var(--color-wz-error)' }} />
+            )}
+            <span className="text-xs font-medium" style={{ color: connected ? 'var(--color-wz-success)' : 'var(--color-wz-error)' }}>
+              {connected ? `${onlineCount} en linea` : 'Desconectado'}
             </span>
           </div>
         )}
         <button
           onClick={toggleCollapsed}
-          className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors ml-auto"
+          className="p-2 rounded-lg transition-colors ml-auto"
+          style={{ color: 'var(--color-wz-text-muted)' }}
           title={collapsed ? 'Expandir' : 'Colapsar'}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
-      {/* Connection status */}
+      {/* Search */}
       {!collapsed && (
-        <div 
-          className="mx-3 mt-3 mb-2 flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium"
-          style={{
-            background: connected 
-              ? 'rgba(34,197,94,0.1)' 
-              : 'rgba(239,68,68,0.1)',
-            border: `1px solid ${connected ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-          }}
-        >
-          {connected ? (
-            <>
-              <Wifi size={14} className="text-green-400" />
-              <span className="text-green-300">{onlineCount} en linea</span>
-            </>
-          ) : (
-            <>
-              <WifiOff size={14} className="text-red-400" />
-              <span className="text-red-300">Desconectado</span>
-            </>
-          )}
+        <div className="p-3">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-wz-text-muted)' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar usuarios..."
+              className="wz-input pl-10 py-2 text-sm"
+            />
+          </div>
         </div>
       )}
 
       {/* Error message */}
       {!collapsed && error && (
-        <div 
-          className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-          style={{
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-          }}
-        >
-          <AlertCircle size={12} className="text-red-400" />
-          <span className="text-red-300 flex-1">{error}</span>
-          <button
-            onClick={fetchUsers}
-            className="text-red-400 hover:text-white transition-colors"
-            title="Reintentar"
-          >
+        <div className="mx-3 mb-2 wz-error flex items-center gap-2 text-xs">
+          <AlertCircle size={12} />
+          <span className="flex-1">{error}</span>
+          <button onClick={fetchUsers} className="hover:opacity-80 transition-opacity" title="Reintentar">
             <RefreshCw size={12} />
           </button>
         </div>
@@ -237,30 +212,30 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
         <div className="flex items-center justify-center py-4">
           <div 
             className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: '#6366f1', borderTopColor: 'transparent' }}
+            style={{ borderColor: 'var(--color-wz-cyan)', borderTopColor: 'transparent' }}
           />
         </div>
       )}
 
       {/* Users list */}
       <div className="flex-1 overflow-y-auto py-2 px-2">
-        {users.map(u => {
+        {filteredUsers.map(u => {
           try {
             const online = isOnline(u.username)
             const displayUsername = u.username || 'Usuario'
             const displayInitial = displayUsername[0]?.toUpperCase() || 'U'
-            const displayColor = u.avatar_color || '#6366f1'
+            const displayColor = u.avatar_color || '#00d4ff'
 
             return (
               <div
                 key={u.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all hover:bg-white/5 cursor-pointer"
+                className="wz-user-item"
                 title={collapsed ? displayUsername : undefined}
               >
                 {/* Avatar */}
                 <div className="relative shrink-0">
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                    className="wz-avatar"
                     style={{ 
                       background: displayColor,
                       boxShadow: online ? `0 0 12px ${displayColor}60` : 'none',
@@ -269,11 +244,12 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
                     {displayInitial}
                   </div>
                   <div
-                    className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                    className={online ? 'wz-status-online' : 'wz-status-offline'}
                     style={{
-                      background: online ? '#22c55e' : '#4b5563',
-                      borderColor: '#0f0f23',
-                      boxShadow: online ? '0 0 6px rgba(34,197,94,0.6)' : 'none',
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      border: '2px solid var(--color-wz-bg)',
                     }}
                   />
                 </div>
@@ -281,14 +257,11 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
                 {/* Info */}
                 {!collapsed && (
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-200 truncate">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--color-wz-text)' }}>
                       {displayUsername}
                     </p>
-                    <p 
-                      className="text-xs truncate"
-                      style={{ color: online ? '#86efac' : '#6b7280' }}
-                    >
-                      {online ? 'en linea' : 'desconectado'}
+                    <p className="text-xs truncate" style={{ color: 'var(--color-wz-text-muted)' }}>
+                      {u.email || (online ? 'en linea' : 'desconectado')}
                     </p>
                   </div>
                 )}
@@ -301,10 +274,12 @@ export default function UsersPanel({ onlineUsers, connected }: Props) {
         })}
 
         {/* Empty state */}
-        {!loading && !collapsed && users.length === 0 && !error && (
+        {!loading && !collapsed && filteredUsers.length === 0 && !error && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Users size={32} className="text-slate-600 mb-2" />
-            <p className="text-slate-500 text-sm">No hay usuarios</p>
+            <Search size={32} style={{ color: 'var(--color-wz-text-muted)' }} className="mb-2" />
+            <p className="text-sm" style={{ color: 'var(--color-wz-text-muted)' }}>
+              {searchQuery ? 'No se encontraron usuarios' : 'No hay usuarios'}
+            </p>
           </div>
         )}
       </div>
